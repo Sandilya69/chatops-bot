@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install deps
+        working-directory: bot
+        run: npm ci || npm install
+
+      - name: Lint (skip if none)
+        working-directory: bot
+        run: |
+          echo "No linter configured yet"
+
+      - name: Register Discord commands (optional)
+        if: ${{ github.event_name == 'push' }}
+        working-directory: bot
+        env:
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+        run: npm run deploy:commands
+
+      - name: Smoke start (no daemon)
+        working-directory: bot
+        env:
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_OWNER: ${{ vars.GITHUB_OWNER || 'Sandilya69' }}
+          GITHUB_REPO: ${{ vars.GITHUB_REPO || 'chatops-bot' }}
+        run: |
+          node -e "console.log('CI env ok:', !!process.env.DISCORD_TOKEN, !!process.env.GITHUB_TOKEN)"
+
+

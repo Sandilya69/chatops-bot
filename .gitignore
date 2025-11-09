@@ -1,0 +1,11 @@
+node_modules/
+.env
+config/local.env
+.DS_Store
+*.log
+lt_url.log
+ngrok.log
+ngrok.out.log
+run.log
+server_output.log
+
