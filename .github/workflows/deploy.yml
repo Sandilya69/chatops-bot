@@ -5,6 +5,17 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Service name'
+        required: true
+      env:
+        description: 'Environment'
+        required: true
+      version:
+        description: 'Version tag'
+        required: true
 
 jobs:
   build:
@@ -35,6 +46,14 @@ jobs:
           CLIENT_ID: ${{ secrets.CLIENT_ID }}
         run: npm run deploy:commands
 
+      - name: Print deployment info (if workflow_dispatch)
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          echo "🚀 Deploying ${{ github.event.inputs.service }} to ${{ github.event.inputs.env }}"
+          echo "Version: ${{ github.event.inputs.version }}"
+          sleep 10
+          echo "✅ Deployment finished"
+
       - name: Smoke start (no daemon)
         working-directory: bot
         env:
@@ -46,5 +65,3 @@ jobs:
           GITHUB_REPO: ${{ vars.GITHUB_REPO || 'chatops-bot' }}
         run: |
           node -e "console.log('CI env ok:', !!process.env.DISCORD_TOKEN, !!process.env.GITHUB_TOKEN)"
-
-
