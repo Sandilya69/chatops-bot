@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { activeDeployments, isInCooldown, setCooldown, pendingApprovals, keyFor } from '../lib/state.js';
 import { withRetry } from '../lib/retry.js';
 import ActiveDeploy from '../models/ActiveDeploy.js';
-import { triggerWorkflow } from '../lib/github.js';
+import { triggerWorkflow, getCommitInfo } from '../lib/github.js';
 import { isDbConnected } from '../lib/dbState.js';
 
 export async function handleDeploy(interaction) {
@@ -44,12 +44,32 @@ export async function handleDeploy(interaction) {
   }
 
   const correlationId = providedCorrelationId || uuidv4();
+
+  // Fetch commit info early to store in DB
+  let commitData = null;
+  try {
+    commitData = await getCommitInfo(version);
+  } catch (e) {
+    console.warn('Could not fetch commit info for DB', e);
+  }
+
   if (isDbConnected()) {
     const existing = await ActiveDeploy.findOne({ correlationId }).lean();
     if (existing) {
       return interaction.reply({ content: `🔁 Duplicate request ignored (correlationId: ${correlationId}).`, ephemeral: true });
     }
-    await withRetry(() => ActiveDeploy.create({ correlationId, service, env, version, userId }), { retries: 2 });
+    await withRetry(() => ActiveDeploy.create({
+      correlationId,
+      service,
+      env,
+      version,
+      userId,
+      // Store commit metadata for audit trail
+      commitAuthor: commitData?.author,
+      commitMessage: commitData?.message,
+      commitSha: commitData?.sha,
+      commitUrl: commitData?.html_url
+    }), { retries: 2 });
   }
 
   activeDeployments.add(key);
@@ -71,8 +91,22 @@ export async function handleDeploy(interaction) {
 }
 
 async function runDeploymentFlow(interaction, { service, env, version }) {
+  // Fetch commit info to show "What" is being added
+  let commitMsg = '';
+  try {
+    const commit = await getCommitInfo(version);
+    if (commit) {
+      commitMsg = `\n\n**📝 Code Changes (What):**\n> ${commit.message}\n**👤 Author (Who):** ${commit.author} \n**🔗 Commit:** [${commit.sha}](${commit.html_url})`;
+    }
+  } catch (e) {
+    console.warn('Could not fetch commit info', e);
+  }
+
   // Initial message
-  const reply = await interaction.reply({ content: `⏳ Deploy in progress... (${service} → ${env}, version: ${version})` , fetchReply: true });
+  const reply = await interaction.reply({
+    content: `⏳ **Deploy Initiated**\n**Service:** ${service}\n**Env:** ${env}\n**Version:** ${version}${commitMsg}`,
+    fetchReply: true
+  });
 
   // Trigger GitHub workflow (non-prod as well) and store run id if DB connected
   try {
@@ -138,6 +172,6 @@ export default {
   }
 };
 
- 
+
 
 

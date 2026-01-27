@@ -105,6 +105,29 @@ npm start
 
 ---
 
+## 🐳 Run with Docker
+
+### Quick Start
+```bash
+# Using Docker Compose (recommended)
+docker-compose up -d
+
+# Or using Docker CLI
+docker build -t chatops-bot .
+docker run -d --name chatops-bot --env-file config/local.env -p 3000:3000 chatops-bot
+```
+
+### View Logs
+```bash
+docker-compose logs -f
+# or
+docker logs -f chatops-bot
+```
+
+See [DOCKER_GUIDE.md](DOCKER_GUIDE.md) for complete Docker deployment instructions.
+
+---
+
 ## 🧾 Examples
 
 - /ping → 🏓 Pong!

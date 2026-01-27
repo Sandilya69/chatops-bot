@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  chatops-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chatops-bot
+    restart: unless-stopped
+    
+    # Environment variables
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    
+    # Load secrets from env file
+    env_file:
+      - config/local.env
+    
+    # Port mapping (if using Express server)
+    ports:
+      - "3000:3000"
+    
+    # Volume mounts for development (commented out to prevent node_modules override)
+    # Uncomment for development hot-reload, but ensure node_modules is excluded
+    # volumes:
+    #   - ./src:/app/src:ro
+    #   - ./logs:/app/logs
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 40s
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Network
+    networks:
+      - chatops-network
+
+networks:
+  chatops-network:
+    driver: bridge

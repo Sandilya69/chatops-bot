@@ -43,4 +43,26 @@ export async function getRunStatus(runId) {
   return res.json();
 }
 
+export async function getCommitInfo(ref = 'main') {
+  const owner = process.env.GITHUB_OWNER;
+  const repo = process.env.GITHUB_REPO;
+  // Get commit details for the ref (branch/tag/sha)
+  const url = `${baseUrl}/repos/${owner}/${repo}/commits/${ref}`;
+  try {
+    const res = await withRetry(() => fetch(url, { headers: ghHeaders() }), { retries: 2 });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return {
+      message: data.commit.message,
+      author: data.commit.author.name,
+      date: data.commit.author.date,
+      sha: data.sha.substring(0, 7),
+      html_url: data.html_url
+    };
+  } catch (e) {
+    console.error('Failed to fetch commit info:', e);
+    return null;
+  }
+}
+
 

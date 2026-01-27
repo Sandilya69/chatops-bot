@@ -1,0 +1,49 @@
+# Dependencies (node_modules is installed inside container, not copied from host)
+# node_modules/
+npm-debug.log*
+
+# Environment files
+.env
+config/local.env
+*.env
+
+# Logs
+*.log
+logs/
+lt_url.log
+ngrok.log
+ngrok.out.log
+run.log
+server_output.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Git
+.git/
+.gitignore
+
+# Documentation (optional - remove if you want docs in image)
+*.md
+!README.md
+
+# Test files
+test/
+*.test.js
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Build artifacts
+dist/
+build/
+
+# Backup files
+*.bak
