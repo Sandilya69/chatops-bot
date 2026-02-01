@@ -4,42 +4,47 @@
 ![MongoDB](https://img.shields.io/badge/MongoDB-Connected-green?style=flat-square)
 ![Discord](https://img.shields.io/badge/Discord-Bot%20Online-blue?style=flat-square)
 
-A full-stack ChatOps automation bot built with Node.js, Discord.js, and MongoDB — streamlining DevOps tasks directly from Discord using slash commands. Integrates with GitHub Actions for CI/CD, supports RBAC, approvals, real‑time logs, and metrics.
+A full-stack, enterprise-grade ChatOps automation bot built with Node.js, Discord.js, and MongoDB. It streamlines DevOps tasks directly from Discord, integrating with GitHub Actions for CI/CD with advanced features like multi-repo support, real-time polling, and webhook notifications.
 
 ---
 
-## 🚀 Features
+## 🚀 Key Features
 
-- /ping — Health check
-- /deploy — Trigger GitHub Actions workflow runs (with approvals for prod)
-- /status — Fetch GitHub Actions run status
-- /metrics — Analytics from MongoDB audit logs (Total, Success, Failed, Success Rate)
-- RBAC (admin/developer/viewer), cooldown, idempotency
-- Threaded logs + staged progress + health check
+- **Multi-Repo Support:** Deploy any registered service by looking up repository details in MongoDB.
+- **Rollback System:** Quickly revert services to the last known successful version.
+- **Real-Time Visibility:** Threaded logs, status polling, and GitHub Webhook integration for live updates.
+- **Hardened Security:** RBAC (admin/developer/viewer), production approval flows, and command rate limiting (30s cooldown).
+- **Observability:** Prometheus metrics (`/metrics`) and structured audit logging in MongoDB.
+- **Reliability:** Automatic MongoDB reconnection logic and API retries with exponential backoff.
+
+---
+
+## 💬 Slash Commands
+
+| Command       | Description                                | Role            |
+| ------------- | ------------------------------------------ | --------------- |
+| `/ping`       | Health check & latency                     | Everyone        |
+| `/deploy`     | Trigger deployment (v4 Polling + Webhooks) | Developer/Admin |
+| `/rollback`   | Revert to last successful version (Step 8) | Admin           |
+| `/addservice` | Register a new repo/service (Step 9)       | Admin           |
+| `/status`     | Check GitHub run status                    | Everyone        |
+| `/metrics`    | View performance & success analytics       | Admin           |
+| `/audit`      | View recent deployment history             | Admin           |
 
 ---
 
 ## 🏗️ Architecture
 
-Discord Slash Commands → Node.js (Discord.js)
-↓
-MongoDB (roles, audit_logs, active_deploys)
-↓
-GitHub Actions (dispatch + status)
-
-Code layout: `src/commands`, `src/lib`, `src/models` (ESM).
-
----
-
-## ⚙️ Tech
-
-| Stack | Tech |
-|---|---|
-| Language | Node.js 18+ |
-| Framework | discord.js v14 |
-| DB | MongoDB Atlas (mongoose) |
-| CI/CD | GitHub Actions |
-| Env | dotenv |
+```mermaid
+graph TD
+    User([User]) -->|Slash Command| Discord[Discord API]
+    Discord -->|Interaction| Bot[ChatOps Bot Node.js]
+    Bot -->|Validate| RBAC[RBAC System]
+    Bot -->|Lookup| DB[(MongoDB)]
+    Bot -->|Dispatch| GHA[GitHub Actions]
+    GHA -->|Webhook/Poll| Bot
+    Bot -->|Notify| Thread[Discord Thread]
+```
 
 ---
 
@@ -48,86 +53,47 @@ Code layout: `src/commands`, `src/lib`, `src/models` (ESM).
 ```
 chatops-bot/
 ├─ src/
-│  ├─ bot.js
-│  ├─ commands/
-│  │  ├─ ping.js
-│  │  ├─ deploy.js
-│  │  ├─ status.js
-│  │  └─ metrics.js
-│  ├─ lib/
-│  │  ├─ github.js
-│  │  ├─ retry.js
-│  │  └─ dbState.js
-│  └─ models/
-│     ├─ Role.js
-│     ├─ CommandAudit.js
-│     └─ ActiveDeploy.js
-├─ config/local.env
-├─ deploy-commands.js
-└─ package.json
+│  ├─ bot.js             # Main entry (Discord + Webhook Server)
+│  ├─ commands/          # Slash command handlers
+│  │  ├─ deploy.js       # Core deployment logic (Step 4 & 9)
+│  │  ├─ rollback.js     # Recovery system (Step 8)
+│  │  └─ addservice.js   # Service registration
+│  ├─ lib/               # Shared utilities
+│  │  ├─ statusPoller.js # GitHub status monitor
+│  │  ├─ rateLimiter.js  # Command throttler (Step 6)
+│  │  └─ db.js           # Reconnect logic (Step 7)
+│  ├─ routes/            # Webhook endpoints
+│  │  └─ github.js       # Webhook processor (Step 5)
+│  └─ models/            # Mongoose schemas
+│     ├─ Service.js      # Multi-repo config
+│     └─ ActiveDeploy.js # Deployment tracking
+└─ config/local.env      # Configuration
 ```
 
 ---
 
-## 🔧 Environment
+## 🔧 Setup
 
-Create `config/local.env`:
-
-```
-DISCORD_TOKEN=your_discord_bot_token
-CLIENT_ID=your_discord_client_id
-MONGODB_URI=mongodb+srv://...
-GITHUB_TOKEN=your_github_pat_token
-GITHUB_OWNER=Sandilya69
-GITHUB_REPO=chatops-bot
-```
-
----
-
-## 💬 Slash Commands
-
-| Command | Role |
-|---|---|
-| /ping | Everyone |
-| /deploy | Developer/Admin (prod needs admin approval) |
-| /status | Everyone |
-| /metrics | Admin |
-
----
-
-## ▶️ Run Locally
-
-```
-npm install
-npm run deploy:commands
-npm start
-```
-
----
-
-## 🧾 Examples
-
-- /ping → 🏓 Pong!
-- /deploy service:api env:dev version:v1 → ✅ Deployment completed
-- /status run_id:19066230916 → 🟢 completed / success
-- /metrics → 📊 Total: 6 • ✅ 6 • ❌ 0 • 📈 100%
-
----
-
-## 🔒 Roles (MongoDB)
-
-```
-db.roles.insertOne({ userId: "1434794266948927634", role: "admin" })
-```
+1. **Environment:** Create `config/local.env` with:
+   - `DISCORD_TOKEN`, `CLIENT_ID`, `MONGODB_URI`, `GITHUB_TOKEN`, `GITHUB_OWNER`.
+2. **Commands:** Register slash commands:
+   ```bash
+   npm run deploy:commands
+   ```
+3. **Start:**
+   ```bash
+   npm start
+   ```
 
 ---
 
 ## 🏁 Roadmap
 
-- Prometheus /metrics endpoint
-- Docker deployment
-- Auto-resume deploys end-to-end
-- PagerDuty/Jira integration
+- [x] Multi-repo support
+- [x] Webhook integration
+- [x] Rollback system
+- [ ] PagerDuty/Jira integration
+- [ ] Auto-resume end-to-end
 
 ---
 
