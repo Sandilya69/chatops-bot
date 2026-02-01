@@ -2,8 +2,14 @@ import { Client, GatewayIntentBits, Events, ActionRowBuilder, ButtonBuilder, But
 import fs from 'fs';
 import dotenv from 'dotenv';
 import path from 'path';
-import express from 'express';
-import { register } from './lib/metrics.js';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { validateEnv } = require('../config/validate.js');
+
+// Load environment variables
+dotenv.config({ path: path.join(process.cwd(), 'config', 'local.env') });
+validateEnv();
+
 import { fileURLToPath } from 'url';
 import mongoose from 'mongoose';
 import { isApprover } from './lib/rbac.js';
@@ -109,12 +115,58 @@ client.on(Events.InteractionCreate, async interaction => {
       pendingApprovals.delete(correlationId);
       await logAudit('deploy_rejected', approver, { correlationId, ...data });
       await interaction.update({ content: `❌ Rejected by <@${approver}>. Deployment canceled.`, components: [] });
+    } else if (action === 'confirm_rollback') {
+      // ID format -- confirm_rollback:service:sha
+      const parts = interaction.customId.split(':');
+      if (parts.length < 3) return;
+      
+      const service = parts[1];
+      const sha = parts[2];
+      
+      await interaction.update({ content: `🚨 **Rollback Confirmed** to ${sha.substring(0,7)}. Deployment starting...`, components: [] });
+      
+      const { handleDeploy } = await import('./commands/deploy.js');
+      // Create wrapped interaction to reuse deploy logic
+      const wrapped = {
+        ...interaction,
+        user: interaction.user,
+        options: {
+          getString: (name) => {
+            if (name === 'service') return service;
+            if (name === 'env') return 'prod'; // Rollbacks target prod by default
+            if (name === 'version') return sha;
+            if (name === 'correlation') return `rollback-${uuidv4()}`;
+            return null;
+          }
+        },
+        reply: (payload) => interaction.followUp(payload),
+        editReply: (payload) => interaction.editReply(payload),
+        fetchReply: () => interaction.fetchReply(),
+        followUp: (payload) => interaction.followUp(payload)
+      };
+      
+      await handleDeploy(wrapped);
+    } else if (action === 'cancel_rollback') {
+      await interaction.update({ content: 'Rollback cancelled.', components: [] });
     }
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('Approval interaction error:', err);
   }
 });
+
+import express from 'express';
+import bodyParser from 'body-parser';
+import githubRoutes from './routes/github.js';
+
+const app = express();
+app.use(bodyParser.json());
+
+// Mount the GitHub webhook router (Step 5)
+app.use('/github', (req, res, next) => {
+    req.discordClient = client;
+    next();
+}, githubRoutes);
 
 async function startBot() {
   const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
@@ -144,6 +196,13 @@ async function startBot() {
     console.error('Missing DISCORD_TOKEN in environment');
     process.exit(1);
   }
+  
+  // Start Express server (Step 5)
+  const port = process.env.PORT || 3000;
+  app.listen(port, () => {
+    console.log(`📡 Webhook server listening on port ${port}`);
+  });
+
   client.login(token);
 }
 

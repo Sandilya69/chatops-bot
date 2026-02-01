@@ -12,10 +12,11 @@ function ghHeaders() {
   };
 }
 
-export async function triggerWorkflow({ service, env, version, ref = 'main' }) {
-  const owner = process.env.GITHUB_OWNER;
-  const repo = process.env.GITHUB_REPO;
-  const url = `${baseUrl}/repos/${owner}/${repo}/actions/workflows/deploy.yml/dispatches`;
+export async function triggerWorkflow({ service, env, version, ref = 'main', repoInfo, workflowId = 'deploy.yml' }) {
+  const owner = repoInfo?.owner || process.env.GITHUB_OWNER;
+  const repo = repoInfo?.repo || process.env.GITHUB_REPO;
+  
+  const url = `${baseUrl}/repos/${owner}/${repo}/actions/workflows/${workflowId}/dispatches`;
   const body = { ref, inputs: { service, env, version } };
 
   await withRetry(() => fetch(url, { method: 'POST', headers: ghHeaders(), body: JSON.stringify(body) }), {
@@ -24,16 +25,16 @@ export async function triggerWorkflow({ service, env, version, ref = 'main' }) {
   });
 
   // Try to locate the newest workflow run for this workflow
-  const runsUrl = `${baseUrl}/repos/${owner}/${repo}/actions/workflows/deploy.yml/runs?event=workflow_dispatch&per_page=1`;
+  const runsUrl = `${baseUrl}/repos/${owner}/${repo}/actions/workflows/${workflowId}/runs?event=workflow_dispatch&per_page=1`;
   const res = await withRetry(() => fetch(runsUrl, { headers: ghHeaders() }), { retries: 3 });
   const data = await res.json();
   const run = data?.workflow_runs?.[0];
   return run?.id || null;
 }
 
-export async function getRunStatus(runId) {
-  const owner = process.env.GITHUB_OWNER;
-  const repo = process.env.GITHUB_REPO;
+export async function getRunStatus(runId, repoInfo) {
+  const owner = repoInfo?.owner || process.env.GITHUB_OWNER;
+  const repo = repoInfo?.repo || process.env.GITHUB_REPO;
   const url = `${baseUrl}/repos/${owner}/${repo}/actions/runs/${runId}`;
   const res = await withRetry(() => fetch(url, { headers: ghHeaders() }), { retries: 3 });
   if (!res.ok) {
@@ -41,28 +42,6 @@ export async function getRunStatus(runId) {
     throw new Error(`GitHub getRunStatus failed: ${res.status} ${txt}`);
   }
   return res.json();
-}
-
-export async function getCommitInfo(ref = 'main') {
-  const owner = process.env.GITHUB_OWNER;
-  const repo = process.env.GITHUB_REPO;
-  // Get commit details for the ref (branch/tag/sha)
-  const url = `${baseUrl}/repos/${owner}/${repo}/commits/${ref}`;
-  try {
-    const res = await withRetry(() => fetch(url, { headers: ghHeaders() }), { retries: 2 });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return {
-      message: data.commit.message,
-      author: data.commit.author.name,
-      date: data.commit.author.date,
-      sha: data.sha.substring(0, 7),
-      html_url: data.html_url
-    };
-  } catch (e) {
-    console.error('Failed to fetch commit info:', e);
-    return null;
-  }
 }
 
 

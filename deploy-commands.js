@@ -11,12 +11,10 @@ dotenv.config({ path: path.resolve(__dirname, 'config', 'local.env') });
 
 const commands = [
   { name: 'ping', description: 'Replies with Pong!' },
-  {
-    name: 'status', description: 'Check GitHub Actions workflow status', options: [
-      { name: 'correlation', description: 'Correlation ID', type: 3, required: false },
-      { name: 'run_id', description: 'Workflow run id', type: 4, required: false }
-    ]
-  },
+  { name: 'status', description: 'Check GitHub Actions workflow status', options: [
+    { name: 'correlation', description: 'Correlation ID', type: 3, required: false },
+    { name: 'run_id', description: 'Workflow run id', type: 4, required: false }
+  ]},
   { name: 'metrics', description: 'Show ChatOps command and deployment metrics' },
   {
     name: 'deploy',
@@ -36,38 +34,10 @@ const commands = [
     ]
   },
   {
-    name: 'addrole',
-    description: 'Add a new user role to the database',
+    name: 'rollback',
+    description: 'Revert a service to the last known good version (Step 8)',
     options: [
-      { name: 'user_id', description: 'Discord user ID', type: 3, required: true },
-      {
-        name: 'role', description: 'Role to assign', type: 3, required: true,
-        choices: [
-          { name: 'admin', value: 'admin' },
-          { name: 'developer', value: 'developer' },
-          { name: 'viewer', value: 'viewer' }
-        ]
-      }
-    ]
-  },
-  {
-    name: 'viewroles',
-    description: 'List all user roles from the database'
-  },
-  {
-    name: 'deleterole',
-    description: 'Delete a user role from the database',
-    options: [
-      { name: 'user_id', description: 'Discord user ID', type: 3, required: true }
-    ]
-  },
-  {
-    name: 'audit',
-    description: 'View deployment audit trail with commit metadata',
-    options: [
-      { name: 'correlation', description: 'Correlation ID', type: 3, required: false },
-      { name: 'service', description: 'Service name', type: 3, required: false },
-      { name: 'limit', description: 'Number of recent deployments', type: 4, required: false }
+      { name: 'service', description: 'Service name to rollback', type: 3, required: true }
     ]
   }
 ];

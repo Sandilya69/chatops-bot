@@ -20,6 +20,17 @@ jest.unstable_mockModule('../../src/models/ActiveDeploy.js', () => ({
   }
 }));
 
+jest.unstable_mockModule('../../src/models/Service.js', () => ({
+  default: {
+    findOne: jest.fn().mockResolvedValue({
+        name: 'api',
+        owner: 'test-owner',
+        repo: 'test-repo',
+        workflow: 'deploy.yml'
+    })
+  }
+}));
+
 jest.unstable_mockModule('../../src/lib/commandAudit.js', () => ({
   logCommand: jest.fn()
 }));
@@ -40,10 +51,18 @@ jest.unstable_mockModule('../../src/lib/retry.js', () => ({
     withRetry: jest.fn((fn) => fn())
 }));
 
+jest.unstable_mockModule('../../src/lib/statusPoller.js', () => ({
+    pollWorkflowStatus: jest.fn(async (runId, cb) => {
+        if (cb) await cb('in_progress');
+        return 'success';
+    })
+}));
+
 // Dynamic import AFTER mocks are defined
 const { canDeploy } = await import('../../src/lib/rbac.js');
 const { triggerWorkflow, getCommitInfo } = await import('../../src/lib/github.js');
 const { default: deployCommand } = await import('../../src/commands/deploy.js');
+const { default: Service } = await import('../../src/models/Service.js');
 
 describe('Deploy Command', () => {
   let interaction;
@@ -96,7 +115,12 @@ describe('Deploy Command', () => {
     expect(triggerWorkflow).toHaveBeenCalledWith({
       service: 'api',
       env: 'staging',
-      version: 'main'
+      version: 'main',
+      serviceDetails: expect.objectContaining({
+          owner: 'test-owner',
+          repo: 'test-repo',
+          workflow: 'deploy.yml'
+      })
     });
     expect(interaction.reply).toHaveBeenCalledWith(
       expect.objectContaining({ content: expect.stringContaining('Deploy Initiated') })
