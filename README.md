@@ -1,156 +1,139 @@
 # 🤖 ChatOps Bot (Discord + GitHub + MongoDB)
 
 [![CI](https://github.com/Sandilya69/chatops-bot/actions/workflows/deploy.yml/badge.svg)](https://github.com/Sandilya69/chatops-bot/actions/workflows/deploy.yml)
+![Status](https://img.shields.io/badge/Expert%20Level-100%25-brightgreen?style=flat-square)
 ![MongoDB](https://img.shields.io/badge/MongoDB-Connected-green?style=flat-square)
 ![Discord](https://img.shields.io/badge/Discord-Bot%20Online-blue?style=flat-square)
 
-A full-stack ChatOps automation bot built with Node.js, Discord.js, and MongoDB — streamlining DevOps tasks directly from Discord using slash commands. Integrates with GitHub Actions for CI/CD, supports RBAC, approvals, real‑time logs, and metrics.
+A professional, enterprise-grade ChatOps platform for DevOps automation. Built with Node.js, this bot allows teams to deploy code, audit releases, and manage permissions correctly from Discord.
 
 ---
 
-## 🚀 Features
+## 🚀 Key Features
 
-- /ping — Health check
-- /deploy — Trigger GitHub Actions workflow runs (with approvals for prod)
-- /status — Fetch GitHub Actions run status
-- /metrics — Analytics from MongoDB audit logs (Total, Success, Failed, Success Rate)
-- RBAC (admin/developer/viewer), cooldown, idempotency
-- Threaded logs + staged progress + health check
+### 的核心 Core Capabilities
 
----
+- **Deployments:** Trigger GitHub Actions workflows via `/deploy`.
+- **Audit Trails:** Complete history of _who_ deployed _what_ and _when_ (/audit).
+- **Security (RBAC):** Granular permissions (Admin/Developer) with approval controls for Production.
+- **Traceability:** Fetches and displays GitHub commit metadata before deploying.
 
-## 🏗️ Architecture
+### 🏆 Expert-Level Features
 
-Discord Slash Commands → Node.js (Discord.js)
-↓
-MongoDB (roles, audit_logs, active_deploys)
-↓
-GitHub Actions (dispatch + status)
-
-Code layout: `src/commands`, `src/lib`, `src/models` (ESM).
+- **🧪 Automated Testing:** Comprehensive Jest test suite with API mocking.
+- **📊 Observability:** Prometheus metrics endpoint on port 9090.
+- **📝 Structured Logging:** JSON logging (Winston) for enterprise log aggregation.
+- **🐳 Containerization:** Production-ready Docker support.
 
 ---
 
-## ⚙️ Tech
+## 🛠️ Architecture
 
-| Stack | Tech |
-|---|---|
-| Language | Node.js 18+ |
-| Framework | discord.js v14 |
-| DB | MongoDB Atlas (mongoose) |
-| CI/CD | GitHub Actions |
-| Env | dotenv |
-
----
-
-## 📁 Structure
-
-```
-chatops-bot/
-├─ src/
-│  ├─ bot.js
-│  ├─ commands/
-│  │  ├─ ping.js
-│  │  ├─ deploy.js
-│  │  ├─ status.js
-│  │  └─ metrics.js
-│  ├─ lib/
-│  │  ├─ github.js
-│  │  ├─ retry.js
-│  │  └─ dbState.js
-│  └─ models/
-│     ├─ Role.js
-│     ├─ CommandAudit.js
-│     └─ ActiveDeploy.js
-├─ config/local.env
-├─ deploy-commands.js
-└─ package.json
+```mermaid
+graph TD
+    User((User)) -->|/deploy| Bot[Discord Bot]
+    Bot -->|Check Roles| MongoDB[(MongoDB)]
+    Bot -->|Trigger| GitHub[GitHub Actions]
+    GitHub -->|Deploy| Server[Production Server]
+    Bot -->|Metrics| Prometheus[Prometheus]
 ```
 
 ---
 
-## 🔧 Environment
+## 🧪 Automated Testing
+
+This project uses **Jest** for unit and integration testing.
+
+```bash
+# Run all tests
+npm test
+```
+
+The test suite includes:
+
+- **Mocking:** GitHub API, Discord Interactions, and MongoDB models are mocked.
+- **Security Verification:** Ensures RBAC logic cannot be bypassed.
+- **ESM Support:** Uses advanced Jest configuration for ECMAScript Modules.
+
+---
+
+## 📊 Monitoring & Metrics
+
+The bot exposes a Prometheus-compatible metrics endpoint.
+
+- **URL:** `http://localhost:9090/metrics`
+- **Port:** `9090` (Separate from bot logic)
+
+**Available Metrics:**
+
+- `chatops_deployments_total`: Total deployments triggered.
+- `chatops_deployment_duration_seconds`: Histogram of deployment times.
+- `chatops_active_deployments`: Live gauge of in-progress operations.
+
+---
+
+## 📝 Logging
+
+Structured logging is implemented using **Winston**.
+
+- **Development:** Pretty-printed logs in console.
+- **Production:** JSON-formatted logs for ingestion (Splunk/ELK).
+- **Log Location:** `logs/combined.log` and `logs/error.log`.
+
+---
+
+## 🐳 Docker Deployment
+
+### Quick Start
+
+```bash
+# Start bot and metrics server
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+```
+
+See [DOCKER_GUIDE.md](DOCKER_GUIDE.md) for full details.
+
+---
+
+## 💬 Slash Commands
+
+| Command      | Description                                             | Permission                         |
+| ------------ | ------------------------------------------------------- | ---------------------------------- |
+| `/deploy`    | Deploy a service (e.g., `api`) to an env (e.g., `prod`) | Developer (Staging) / Admin (Prod) |
+| `/audit`     | View deployment history                                 | Everyone                           |
+| `/status`    | Check deployment status                                 | Everyone                           |
+| `/metrics`   | View usage stats                                        | Admin                              |
+| `/addrole`   | Grant permissions to users                              | Admin                              |
+| `/viewroles` | See all assigned roles                                  | Admin                              |
+
+---
+
+## ⚙️ Configuration
 
 Create `config/local.env`:
 
-```
-DISCORD_TOKEN=your_discord_bot_token
-CLIENT_ID=your_discord_client_id
+```env
+DISCORD_TOKEN=your_token
+CLIENT_ID=your_id
 MONGODB_URI=mongodb+srv://...
-GITHUB_TOKEN=your_github_pat_token
+GITHUB_TOKEN=your_pat
 GITHUB_OWNER=Sandilya69
 GITHUB_REPO=chatops-bot
 ```
 
 ---
 
-## 💬 Slash Commands
+## 🏆 Project Status
 
-| Command | Role |
-|---|---|
-| /ping | Everyone |
-| /deploy | Developer/Admin (prod needs admin approval) |
-| /status | Everyone |
-| /metrics | Admin |
-
----
-
-## ▶️ Run Locally
-
-```
-npm install
-npm run deploy:commands
-npm start
-```
-
----
-
-## 🐳 Run with Docker
-
-### Quick Start
-```bash
-# Using Docker Compose (recommended)
-docker-compose up -d
-
-# Or using Docker CLI
-docker build -t chatops-bot .
-docker run -d --name chatops-bot --env-file config/local.env -p 3000:3000 chatops-bot
-```
-
-### View Logs
-```bash
-docker-compose logs -f
-# or
-docker logs -f chatops-bot
-```
-
-See [DOCKER_GUIDE.md](DOCKER_GUIDE.md) for complete Docker deployment instructions.
-
----
-
-## 🧾 Examples
-
-- /ping → 🏓 Pong!
-- /deploy service:api env:dev version:v1 → ✅ Deployment completed
-- /status run_id:19066230916 → 🟢 completed / success
-- /metrics → 📊 Total: 6 • ✅ 6 • ❌ 0 • 📈 100%
-
----
-
-## 🔒 Roles (MongoDB)
-
-```
-db.roles.insertOne({ userId: "1434794266948927634", role: "admin" })
-```
-
----
-
-## 🏁 Roadmap
-
-- Prometheus /metrics endpoint
-- Docker deployment
-- Auto-resume deploys end-to-end
-- PagerDuty/Jira integration
+- [x] Core ChatOps Logic
+- [x] Docker Containerization
+- [x] MongoDB Audit Trail
+- [x] Automated Testing (Jest)
+- [x] Prometheus Metrics
+- [x] Structured Logging
 
 ---
 
