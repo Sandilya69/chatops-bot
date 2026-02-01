@@ -7,6 +7,7 @@ import { withRetry } from '../lib/retry.js';
 import ActiveDeploy from '../models/ActiveDeploy.js';
 import { triggerWorkflow, getCommitInfo } from '../lib/github.js';
 import { isDbConnected } from '../lib/dbState.js';
+import { deploymentCounter, deploymentDuration } from '../lib/metrics.js';
 
 export async function handleDeploy(interaction) {
   const service = interaction.options.getString('service');
@@ -91,6 +92,7 @@ export async function handleDeploy(interaction) {
 }
 
 async function runDeploymentFlow(interaction, { service, env, version }) {
+  const startTime = Date.now();
   // Fetch commit info to show "What" is being added
   let commitMsg = '';
   try {
@@ -148,6 +150,10 @@ async function runDeploymentFlow(interaction, { service, env, version }) {
   await log('✅ Service healthy.');
 
   // Final update
+  const duration = (Date.now() - startTime) / 1000;
+  deploymentDuration.labels(service, env).observe(duration);
+  deploymentCounter.labels(service, env, 'success').inc();
+
   await interaction.editReply(`✅ Deployment completed successfully. (${service} → ${env}, version: ${version})`);
   return true;
 }

@@ -2,6 +2,8 @@ import { Client, GatewayIntentBits, Events, ActionRowBuilder, ButtonBuilder, But
 import fs from 'fs';
 import dotenv from 'dotenv';
 import path from 'path';
+import express from 'express';
+import { register } from './lib/metrics.js';
 import { fileURLToPath } from 'url';
 import mongoose from 'mongoose';
 import { isApprover } from './lib/rbac.js';
