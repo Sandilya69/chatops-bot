@@ -4,32 +4,47 @@
 ![MongoDB](https://img.shields.io/badge/MongoDB-Connected-green?style=flat-square)
 ![Discord](https://img.shields.io/badge/Discord-Bot%20Online-blue?style=flat-square)
 
-A full-stack, enterprise-grade ChatOps automation bot built with Node.js, Discord.js, and MongoDB. It streamlines DevOps tasks directly from Discord, integrating with GitHub Actions for CI/CD with advanced features like multi-repo support, real-time polling, and webhook notifications.
+A full-stack, enterprise-grade ChatOps automation bot built with Node.js, Discord.js, and MongoDB. It streamlines DevOps tasks directly from Discord, integrating with GitHub Actions for CI/CD. This project fulfills the **100% Expert-Level Enhancement Guide**.
 
 ---
 
 ## 🚀 Key Features
 
-- **Multi-Repo Support:** Deploy any registered service by looking up repository details in MongoDB.
-- **Rollback System:** Quickly revert services to the last known successful version.
-- **Real-Time Visibility:** Threaded logs, status polling, and GitHub Webhook integration for live updates.
-- **Hardened Security:** RBAC (admin/developer/viewer), production approval flows, and command rate limiting (30s cooldown).
-- **Observability:** Prometheus metrics (`/metrics`) and structured audit logging in MongoDB.
-- **Reliability:** Automatic MongoDB reconnection logic and API retries with exponential backoff.
+- **Multi-Repo Scaling:** Register and deploy any GitHub repository dynamically using MongoDB.
+- **Granular RBAC:** Distinct permissions for **Developer**, **Tester**, and **Admin** roles.
+- **Safety First:** Production deployments require manual **Admin Approval** via interactive buttons.
+- **Real-Time Visibility:** Hybrid monitoring using **GitHub API Polling** and **Webhook listeners** (Port 3010).
+- **Disaster Recovery:** A robust **Rollback System** to revert to the last known good version instantly.
+- **Hardened Logic:** Command rate limiting, auto-reconnecting MongoDB, and environment validation.
 
 ---
 
 ## 💬 Slash Commands
 
-| Command       | Description                                | Role            |
-| ------------- | ------------------------------------------ | --------------- |
-| `/ping`       | Health check & latency                     | Everyone        |
-| `/deploy`     | Trigger deployment (v4 Polling + Webhooks) | Developer/Admin |
-| `/rollback`   | Revert to last successful version (Step 8) | Admin           |
-| `/addservice` | Register a new repo/service (Step 9)       | Admin           |
-| `/status`     | Check GitHub run status                    | Everyone        |
-| `/metrics`    | View performance & success analytics       | Admin           |
-| `/audit`      | View recent deployment history             | Admin           |
+| Command       | Description                          | Role Required |
+| ------------- | ------------------------------------ | ------------- |
+| `/ping`       | Health check & latency               | Everyone      |
+| `/deploy`     | Trigger deployment (Poll + Webhooks) | Developer+    |
+| `/rollback`   | Emergency revert to last success     | Admin         |
+| `/addservice` | Register new GitHub repo dynamically | Admin         |
+| `/addrole`    | Assign user permissions              | Admin         |
+| `/deleterole` | Remove user permissions              | Admin         |
+| `/viewroles`  | List all active roles                | Everyone      |
+| `/metrics`    | Success/Failure analytics            | Admin         |
+| `/audit`      | Detailed deployment history          | Admin         |
+| `/status`     | Check specific GitHub run status     | Everyone      |
+
+---
+
+## 🛡️ Role-Based Access (RBAC)
+
+Our security model follows the **Principle of Least Privilege**:
+
+| Role          | **Dev** Env | **Staging** Env | **Prod** Env     |
+| ------------- | ----------- | --------------- | ---------------- |
+| **Developer** | ✅          | ❌              | ❌               |
+| **Tester**    | ✅          | ✅              | ❌               |
+| **Admin**     | ✅          | ✅              | ✅ (w/ Approval) |
 
 ---
 
@@ -48,35 +63,26 @@ graph TD
 
 ---
 
-## 📁 Structure
+## 📁 Project Structure
 
 ```
 chatops-bot/
 ├─ src/
-│  ├─ bot.js             # Main entry (Discord + Webhook Server)
-│  ├─ commands/          # Slash command handlers
-│  │  ├─ deploy.js       # Core deployment logic (Step 4 & 9)
-│  │  ├─ rollback.js     # Recovery system (Step 8)
-│  │  └─ addservice.js   # Service registration
-│  ├─ lib/               # Shared utilities
-│  │  ├─ statusPoller.js # GitHub status monitor
-│  │  ├─ rateLimiter.js  # Command throttler (Step 6)
-│  │  └─ db.js           # Reconnect logic (Step 7)
-│  ├─ routes/            # Webhook endpoints
-│  │  └─ github.js       # Webhook processor (Step 5)
-│  └─ models/            # Mongoose schemas
-│     ├─ Service.js      # Multi-repo config
-│     └─ ActiveDeploy.js # Deployment tracking
-└─ config/local.env      # Configuration
+│  ├─ bot.js             # Main Entry (Discord + Webhook Server)
+│  ├─ commands/          # Interactive Slash Commands (10 total)
+│  ├─ lib/               # Expert Logic (Polling, Throttling, DB Recovery)
+│  ├─ routes/            # Webhook Endpoints
+│  └─ models/            # Mongoose Schemas (Services, Roles, Audit)
+├─ config/               # Validation & Local Config
+└─ tests/                # Jest Unit & Integration Tests
 ```
 
 ---
 
-## 🔧 Setup
+## 🔧 Installation & Setup
 
-1. **Environment:** Create `config/local.env` with:
-   - `DISCORD_TOKEN`, `CLIENT_ID`, `MONGODB_URI`, `GITHUB_TOKEN`, `GITHUB_OWNER`.
-2. **Commands:** Register slash commands:
+1. **Environment:** Create `config/local.env` with your `DISCORD_TOKEN`, `CLIENT_ID`, `MONGODB_URI`, and `GITHUB_TOKEN`.
+2. **Commands:** Sync with Discord:
    ```bash
    npm run deploy:commands
    ```
@@ -87,31 +93,25 @@ chatops-bot/
 
 ---
 
-## 🏁 Roadmap
+## ✅ Expert Enhancement Checklist (100% Complete)
 
-- [x] Multi-repo support
-- [x] Webhook integration
-- [x] Rollback system
-- [x] Deployment testing and validation
-- [x] Server configuration management
-- [ ] PagerDuty/Jira integration
-- [ ] Auto-resume end-to-end
+- [x] **Step 1:** Startup Environment Validation
+- [x] **Step 2:** Repository Cleanup & Git Optimization
+- [x] **Step 3:** Production Approval Governance
+- [x] **Step 4:** GitHub Workflow Status Polling
+- [x] **Step 5:** Real-time Webhook Integration
+- [x] **Step 6:** Command Rate Limiting (Anti-Spam)
+- [x] **Step 7:** Robust MongoDB Connection Recovery
+- [x] **Step 8:** Automated Rollback Logic
+- [x] **Step 9:** Multi-Repo Configuration Support
 
 ---
 
-## 📊 Recent Updates
+## 🏁 Roadmap
 
-### Latest Version (v4.2)
-- **Deployment Testing:** Added comprehensive deployment testing files and validation
-- **Server Configuration:** Enhanced server.js with production-ready settings
-- **Documentation:** Updated with deployment testing PDF and failure analysis
-- **Monitoring:** Improved test output tracking and deployment metrics
-
-### Key Improvements
-- Added `server.js` for standalone server deployment
-- Enhanced deployment testing with `test_output.txt` tracking
-- Added failure analysis with `deploy_fail.txt` logging
-- Comprehensive deployment guide documentation (`chatops-bot-steps.pdf`)
+- [ ] PagerDuty / Incident Response Integration
+- [ ] Automated Slack Mirroring
+- [ ] Containerized Sidecar Metrics (Prometheus)
 
 ---
 
