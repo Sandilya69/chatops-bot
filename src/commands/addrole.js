@@ -16,6 +16,7 @@ export default {
         .addChoices(
           { name: 'admin', value: 'admin' },
           { name: 'developer', value: 'developer' },
+          { name: 'tester', value: 'tester' },
           { name: 'viewer', value: 'viewer' }
         )),
 

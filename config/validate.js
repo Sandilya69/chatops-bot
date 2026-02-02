@@ -3,8 +3,8 @@ const REQUIRED = [
     'GITHUB_TOKEN', 'GITHUB_OWNER', 'GITHUB_REPO'
 ];
 
-function validateEnv() {
-    const missing = REQUIRED.filter(k => !process.env[k]);
+export function validateEnv() {
+    const missing = REQUIRED.filter(k => !process.env[k] && !process.env[k.replace('MONGODB_', 'MONGO_')]);
     if (missing.length > 0) {
         console.error('❌ MISSING ENV VARS:', missing);
         process.exit(1);
@@ -12,4 +12,3 @@ function validateEnv() {
     console.log('✅ Environment variables validated');
 }
 
-module.exports = { validateEnv };

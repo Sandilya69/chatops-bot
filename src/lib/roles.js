@@ -12,5 +12,7 @@ export async function getUserRole(userId) {
 export function isAuthorizedForDeploy(role) {
   return role === 'admin' || role === 'developer';
 }
-
-
+export async function hasRole(userId, roleName) {
+  const role = await getUserRole(userId);
+  return role === roleName;
+}

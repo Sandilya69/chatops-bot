@@ -17,6 +17,47 @@ const commands = [
   ]},
   { name: 'metrics', description: 'Show ChatOps command and deployment metrics' },
   {
+    name: 'addrole',
+    description: 'Add a new user role (Admin only)',
+    options: [
+      { name: 'user_id', description: 'Discord user ID', type: 3, required: true },
+      {
+        name: 'role', description: 'Role to assign', type: 3, required: true,
+        choices: [
+          { name: 'admin', value: 'admin' },
+          { name: 'developer', value: 'developer' },
+          { name: 'tester', value: 'tester' },
+          { name: 'viewer', value: 'viewer' }
+        ]
+      }
+    ]
+  },
+  {
+    name: 'deleterole',
+    description: 'Remove a user role (Admin only)',
+    options: [
+      { name: 'user_id', description: 'Discord user ID', type: 3, required: true }
+    ]
+  },
+  {
+    name: 'viewroles',
+    description: 'List all user roles'
+  },
+  {
+    name: 'audit',
+    description: 'View recent deployment audit logs'
+  },
+  {
+    name: 'addservice',
+    description: 'Register a new service (Admin only)',
+    options: [
+      { name: 'name', description: 'Service name (e.g. api)', type: 3, required: true },
+      { name: 'owner', description: 'GitHub Owner/Org', type: 3, required: true },
+      { name: 'repo', description: 'GitHub Repository', type: 3, required: true },
+      { name: 'workflow', description: 'Workflow filename (default: deploy.yml)', type: 3, required: false }
+    ]
+  },
+  {
     name: 'deploy',
     description: 'Deploys a service',
     options: [

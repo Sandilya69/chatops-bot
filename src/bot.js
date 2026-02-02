@@ -2,9 +2,7 @@ import { Client, GatewayIntentBits, Events, ActionRowBuilder, ButtonBuilder, But
 import fs from 'fs';
 import dotenv from 'dotenv';
 import path from 'path';
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const { validateEnv } = require('../config/validate.js');
+import { validateEnv } from '../config/validate.js';
 
 // Load environment variables
 dotenv.config({ path: path.join(process.cwd(), 'config', 'local.env') });
@@ -198,7 +196,7 @@ async function startBot() {
   }
   
   // Start Express server (Step 5)
-  const port = process.env.PORT || 3000;
+  const port = process.env.PORT || 3001;
   app.listen(port, () => {
     console.log(`📡 Webhook server listening on port ${port}`);
   });

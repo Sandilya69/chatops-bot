@@ -16,10 +16,22 @@ export async function isApprover(userId) {
 
 export async function canDeploy(userId, env) {
   const role = await getUserRole(userId);
-  if (env === 'prod') {
-    return role === 'admin';
+  
+  if (role === 'admin') return true; // Admins can do everything
+
+  if (env === 'dev') {
+    return role === 'developer' || role === 'tester';
   }
-  return role === 'developer' || role === 'admin';
+
+  if (env === 'staging') {
+    return role === 'tester'; // Only testers/admins can touch staging
+  }
+
+  if (env === 'prod') {
+    return false; // Only admins (handled above) can touch prod
+  }
+
+  return false;
 }
 
 
