@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -19,9 +19,16 @@ jobs:
           node-version: 20
 
       - name: Install dependencies
+        working-directory: bot
         run: npm ci
 
-      - name: Run lint & basic test
-        run: |
-          echo "Lint check simulated"
-          echo "Unit tests simulated"
+      - name: Run tests with coverage
+        working-directory: bot
+        run: npx jest --coverage --passWithNoTests
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          DISCORD_TOKEN: dummy-token-for-ci
+          CLIENT_ID: dummy-client-id
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_OWNER: Sandilya69
+          GITHUB_REPO: chatops-bot

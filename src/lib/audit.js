@@ -1,14 +1,15 @@
 import AuditLog from '../models/AuditLog.js';
+import { isDbConnected } from './dbState.js';
+import logger from './logger.js';
 
 export async function logAudit(action, user, details = {}) {
   try {
-    if (AuditLog) {
-      await AuditLog.create({ action, user, details });
+    if (!isDbConnected()) {
+      logger.warn('[AUDIT][NO-DB]', { action, user, details });
       return;
     }
-  } catch {}
-  // eslint-disable-next-line no-console
-  console.log('[AUDIT]', action, user, details);
+    await AuditLog.create({ action, user, details });
+  } catch (err) {
+    logger.error('[AUDIT_FAIL]', { error: err.message, action, user });
+  }
 }
-
-

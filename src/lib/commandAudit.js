@@ -1,18 +1,15 @@
 import CommandAudit from '../models/CommandAudit.js';
 import { isDbConnected } from './dbState.js';
+import logger from './logger.js';
 
-export async function logCommand(userId, command, status) {
+export async function logCommand(userId, command, status = 'success', meta = {}) {
   try {
     if (!isDbConnected()) {
-      // eslint-disable-next-line no-console
-      console.log('[AUDIT][NO-DB]', { userId, command, status });
+      logger.warn('[AUDIT][NO-DB]', { userId, command, status, meta });
       return;
     }
-    await CommandAudit.create({ userId, command, status });
+    await CommandAudit.create({ userId, command, status, meta });
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[AUDIT_LOG_FAIL]', err.message);
+    logger.error('[AUDIT_LOG_FAIL]', { error: err.message, userId, command });
   }
 }
-
-

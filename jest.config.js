@@ -8,5 +8,13 @@ export default {
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   testMatch: ['**/tests/**/*.test.js'],
-  verbose: true
+  verbose: true,
+  collectCoverageFrom: ['src/**/*.js', '!src/models/*.js'],
+  coverageThreshold: {
+    global: {
+      branches: 50,
+      functions: 50,
+      lines: 50,
+    }
+  }
 };

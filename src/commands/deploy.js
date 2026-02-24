@@ -9,10 +9,11 @@ import { triggerWorkflow } from '../lib/github.js';
 import { isDbConnected } from '../lib/dbState.js';
 import { pollWorkflowStatus } from '../lib/statusPoller.js';
 import { deploymentCounter, deploymentDuration } from '../lib/metrics.js';
-
 import { isRateLimited, getRemainingCooldown } from '../lib/rateLimiter.js';
-
 import Service from '../models/Service.js';
+import logger from '../lib/logger.js';
+
+const APPROVAL_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 
 export async function handleDeploy(interaction) {
   const serviceName = interaction.options.getString('service');
@@ -47,8 +48,9 @@ export async function handleDeploy(interaction) {
 
   const allowed = await canDeploy(userId, env);
   if (!allowed) {
-    await logCommand(userId, '/deploy', 'denied');
-    return interaction.reply({ content: '🚫 You don’t have permission to run this command.', ephemeral: true });
+    await logCommand(userId, '/deploy', 'denied', { service: serviceName, env });
+    logger.warn('Deploy denied by RBAC', { userId, service: serviceName, env });
+    return interaction.reply({ content: "🚫 You don't have permission to run this command.", ephemeral: true });
   }
 
   const key = keyFor(serviceName, env);
@@ -62,13 +64,23 @@ export async function handleDeploy(interaction) {
   if (env === 'prod') {
     const correlationId = providedCorrelationId || uuidv4();
     pendingApprovals.set(correlationId, { requester: userId, service: serviceName, env, version, requestedAt: Date.now() });
+
+    // FIX-008: Auto-expire approval requests after 30 minutes
+    setTimeout(() => {
+      if (pendingApprovals.has(correlationId)) {
+        pendingApprovals.delete(correlationId);
+        logger.warn('Approval request expired', { correlationId, service: serviceName, env });
+      }
+    }, APPROVAL_TIMEOUT_MS);
+
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`approve:${correlationId}`).setLabel('Approve').setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId(`reject:${correlationId}`).setLabel('Reject').setStyle(ButtonStyle.Danger)
     );
-    await logCommand(userId, '/deploy', 'success');
+    await logCommand(userId, '/deploy', 'success', { service: serviceName, env, version, correlationId, type: 'approval_requested' });
+    logger.info('Production approval requested', { correlationId, service: serviceName, env, version, userId });
     return interaction.reply({
-      content: `🔐 Approval required to deploy ${serviceName} to ${env} (version: ${version}). Only admins can approve.`,
+      content: `🔐 Approval required to deploy ${serviceName} to ${env} (version: ${version}). Only admins can approve. ⏰ Expires in 30 minutes.`,
       components: [row]
     });
   }
@@ -79,13 +91,13 @@ export async function handleDeploy(interaction) {
     if (existing) {
       return interaction.reply({ content: `🔁 Duplicate request ignored (correlationId: ${correlationId}).`, ephemeral: true });
     }
-    await withRetry(() => ActiveDeploy.create({ correlationId, service, env, version, userId }), { retries: 2 });
+    await withRetry(() => ActiveDeploy.create({ correlationId, service: serviceName, env, version, userId }), { retries: 2 });
   }
 
   activeDeployments.add(key);
   setTimeout(() => activeDeployments.delete(key), 5 * 60 * 1000);
   setCooldown(serviceName, env, 2 * 60 * 1000);
-  await logCommand(userId, '/deploy', 'success');
+  await logCommand(userId, '/deploy', 'success', { service: serviceName, env, version, correlationId });
   try {
     const res = await runDeploymentFlow(interaction, { service: serviceName, env, version, serviceDetails, correlationId });
     if (isDbConnected()) {
@@ -122,12 +134,15 @@ async function runDeploymentFlow(interaction, { service, env, version, serviceDe
 
   // Trigger GitHub workflow
   try {
+    // Parse owner/repo from the stored string (e.g. "Sandilya69/blog-website")
+    const [dbOwner, dbRepo] = serviceDetails?.repo?.split('/') || [];
+
     const runId = await triggerWorkflow({ 
         service, 
         env, 
         version,
-        repoInfo: { owner: serviceDetails?.owner, repo: serviceDetails?.repo },
-        workflowId: serviceDetails?.workflow_id
+        repoInfo: { owner: dbOwner || process.env.GITHUB_OWNER, repo: dbRepo || process.env.GITHUB_REPO },
+        workflowId: serviceDetails?.workflow_id || 'deploy.yml'
     });
     
     if (!runId) {
@@ -142,7 +157,7 @@ async function runDeploymentFlow(interaction, { service, env, version, serviceDe
     // Start Polling (Step 4)
     await log('⏳ Waiting for workflow completion...');
     let lastStatus = '';
-    const repoInfo = { owner: serviceDetails?.owner, repo: serviceDetails?.repo };
+    const repoInfo = { owner: dbOwner || process.env.GITHUB_OWNER, repo: dbRepo || process.env.GITHUB_REPO };
     const result = await pollWorkflowStatus(runId, repoInfo, async (status) => {
       if (status !== lastStatus) {
         lastStatus = status;
@@ -174,7 +189,7 @@ async function runDeploymentFlow(interaction, { service, env, version, serviceDe
     return true;
 
   } catch (e) {
-    console.error('GitHub Trigger/Polling Failed:', e);
+    logger.error('GitHub Trigger/Polling Failed', { error: e.message, service, env });
     await log(`❌ **CRITICAL ERROR**: Deployment Failed.\nreason: ${e.message}`);
     await interaction.editReply(`❌ Deployment Failed. View thread for details.`);
     if (isDbConnected()) {

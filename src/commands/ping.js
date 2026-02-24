@@ -1,16 +1,25 @@
 import { SlashCommandBuilder } from 'discord.js';
+import { getUserRole } from '../lib/rbac.js';
+import { logCommand } from '../lib/commandAudit.js';
+import logger from '../lib/logger.js';
 
 export default {
   data: new SlashCommandBuilder()
     .setName('ping')
-    .setDescription('Replies with Pong!'),
+    .setDescription('Health check — checks bot and DB status'),
+
   async execute(interaction) {
     try {
-      await interaction.deferReply({ ephemeral: true });
-      await interaction.editReply('🏓 Pong!');
+      await interaction.deferReply();
+      const userId = interaction.user.id;
+      const role = await getUserRole(userId);
+      await logCommand(userId, 'ping', 'success', { role });
+      logger.info('Ping command executed', { userId, role });
+      await interaction.editReply({
+        content: `🏓 Pong! Bot online. Your role: **${role ?? 'none'}**`,
+      });
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Ping command error:', error);
+      logger.error('Ping command error', { error: error.message });
       if (interaction.deferred || interaction.replied) {
         await interaction.editReply('❌ Error responding to ping.');
       } else {
@@ -19,15 +28,3 @@ export default {
     }
   },
 };
-
-import { getUserRole } from '../lib/roles.js';
-import { logAudit } from '../lib/audit.js';
-
-export async function handlePing(interaction) {
-  const userId = interaction.user.id;
-  const role = await getUserRole(userId);
-  await logAudit('ping', userId, { command: 'ping', status: 'success', role });
-  return interaction.reply('🏓 Pong!');
-}
-
-

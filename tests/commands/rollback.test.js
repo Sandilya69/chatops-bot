@@ -44,12 +44,12 @@ describe('Rollback Command', () => {
 
   test('should fail if no history found', async () => {
     ActiveDeploy.findOne.mockReturnValue({
-        sort: jest.fn().mockResolvedValue(null)
+        sort: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue(null) })
     });
 
     await rollbackCommand.execute(interaction);
     expect(interaction.reply).toHaveBeenCalledWith(
-        expect.objectContaining({ content: expect.stringContaining('No successful deployment history') })
+        expect.objectContaining({ content: expect.stringContaining('No successful deployment found') })
     );
   });
 

@@ -45,7 +45,12 @@ const commands = [
   },
   {
     name: 'audit',
-    description: 'View recent deployment audit logs'
+    description: 'View deployment audit trail',
+    options: [
+      { name: 'service', description: 'Filter by service name', type: 3, required: false },
+      { name: 'correlation', description: 'Look up specific correlation ID', type: 3, required: false },
+      { name: 'limit', description: 'Number of records (default 5, max 20)', type: 4, required: false }
+    ]
   },
   {
     name: 'addservice',

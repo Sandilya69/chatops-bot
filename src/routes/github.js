@@ -1,9 +1,38 @@
 import express from 'express';
+import crypto from 'crypto';
 import ActiveDeploy from '../models/ActiveDeploy.js';
+import logger from '../lib/logger.js';
 
 const router = express.Router();
 
-router.post('/webhook', async (req, res) => {
+// FIX-004: GitHub webhook signature verification
+function verifyGitHubSignature(req, res, next) {
+  const secret = process.env.GITHUB_WEBHOOK_SECRET;
+  if (!secret) return next(); // skip verification if secret not configured
+
+  const sig = req.headers['x-hub-signature-256'];
+  if (!sig) {
+    logger.warn('[Webhook] Missing X-Hub-Signature-256 header');
+    return res.status(401).json({ error: 'Missing signature' });
+  }
+
+  const hmac = crypto.createHmac('sha256', secret);
+  const digest = 'sha256=' + hmac.update(JSON.stringify(req.body)).digest('hex');
+
+  try {
+    if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(digest))) {
+      logger.warn('[Webhook] Invalid signature', { received: sig });
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
+  } catch {
+    logger.warn('[Webhook] Signature comparison failed');
+    return res.status(401).json({ error: 'Invalid signature' });
+  }
+
+  next();
+}
+
+router.post('/webhook', verifyGitHubSignature, async (req, res) => {
   const event = req.header('X-GitHub-Event');
   const payload = req.body;
 
@@ -13,9 +42,9 @@ router.post('/webhook', async (req, res) => {
     const conclusion = run.conclusion;
     const runId = run.id;
 
-    console.log(`[Webhook] Workflow ${runId} update: ${status} (${conclusion})`);
+    logger.info(`[Webhook] Workflow ${runId} update: ${status} (${conclusion})`);
 
-    // Step 5: Update MongoDB and Notify Discord
+    // Update MongoDB and Notify Discord
     try {
       const deploy = await ActiveDeploy.findOne({ workflowRunId: runId });
       if (deploy && status === 'completed') {
@@ -34,7 +63,7 @@ router.post('/webhook', async (req, res) => {
           }
       }
     } catch (err) {
-      console.error('[Webhook] Error processing event:', err);
+      logger.error('[Webhook] Error processing event', { error: err.message, runId });
     }
   }
 
@@ -42,5 +71,3 @@ router.post('/webhook', async (req, res) => {
 });
 
 export default router;
-
-

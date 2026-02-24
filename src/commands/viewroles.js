@@ -1,5 +1,6 @@
 import { SlashCommandBuilder } from 'discord.js';
 import Role from '../models/Role.js';
+import logger from '../lib/logger.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -33,8 +34,7 @@ export default {
       return interaction.editReply({ content: message });
 
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('ViewRoles command error:', error);
+      logger.error('ViewRoles command error', { error: error.message });
       
       if (interaction.deferred || interaction.replied) {
         return interaction.editReply({

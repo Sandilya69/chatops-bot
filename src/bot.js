@@ -17,6 +17,7 @@ import { logAudit } from './lib/audit.js';
 import { activeDeployments, cooldownUntil, isInCooldown, setCooldown, pendingApprovals, keyFor } from './lib/state.js';
 import { v4 as uuidv4 } from 'uuid';
 import ActiveDeploy from './models/ActiveDeploy.js';
+import logger from './lib/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -38,17 +39,14 @@ try {
         client.commands.set(command.data.name, command);
       }
     }
-    // eslint-disable-next-line no-console
-    console.log(`🧩 Loaded commands: ${[...client.commands.keys()].join(', ')}`);
+    logger.info(`🧩 Loaded commands: ${[...client.commands.keys()].join(', ')}`);
   }
 } catch (e) {
-  // eslint-disable-next-line no-console
-  console.error('Command load error:', e);
+  logger.error('Command load error', { error: e.message });
 }
 
 client.once(Events.ClientReady, c => {
-  // eslint-disable-next-line no-console
-  console.log(`🤖 Logged in as ${c.user.tag}`);
+  logger.info(`🤖 Logged in as ${c.user.tag}`);
 });
 
 client.on(Events.InteractionCreate, async interaction => {
@@ -58,8 +56,7 @@ client.on(Events.InteractionCreate, async interaction => {
   try {
     await command.execute(interaction);
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('Interaction error:', err);
+    logger.error('Interaction error', { error: err.message, command: interaction.commandName });
     if (!interaction.replied) {
       await interaction.reply({ content: '⚠️ Error handling command.', ephemeral: true });
     }
@@ -148,8 +145,7 @@ client.on(Events.InteractionCreate, async interaction => {
       await interaction.update({ content: 'Rollback cancelled.', components: [] });
     }
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('Approval interaction error:', err);
+    logger.error('Approval interaction error', { error: err.message });
   }
 });
 
@@ -171,34 +167,29 @@ async function startBot() {
   if (mongoUri) {
     try {
       await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 5000 });
-      // eslint-disable-next-line no-console
-      console.log('✅ Connected to MongoDB');
+      logger.info('✅ Connected to MongoDB');
       // Resume any in-flight deployments
       const inflight = await ActiveDeploy.find({ status: 'in_progress' }).lean();
       if (inflight.length) {
-        // eslint-disable-next-line no-console
-        console.log(`↩️ Resuming ${inflight.length} in-flight deployment(s)...`);
+        logger.info(`↩️ Resuming ${inflight.length} in-flight deployment(s)...`);
       }
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error('❌ MongoDB connection failed:', err.message);
+      logger.error('❌ MongoDB connection failed', { error: err.message });
     }
   } else {
-    // eslint-disable-next-line no-console
-    console.warn('⚠️ MONGO_URI/MONGODB_URI not set; skipping DB connection');
+    logger.warn('⚠️ MONGO_URI/MONGODB_URI not set; skipping DB connection');
   }
 
   const token = process.env.DISCORD_TOKEN;
   if (!token) {
-    // eslint-disable-next-line no-console
-    console.error('Missing DISCORD_TOKEN in environment');
+    logger.error('Missing DISCORD_TOKEN in environment');
     process.exit(1);
   }
   
   // Start Express server (Step 5)
   const port = process.env.PORT || 3001;
   app.listen(port, () => {
-    console.log(`📡 Webhook server listening on port ${port}`);
+    logger.info(`📡 Webhook server listening on port ${port}`);
   });
 
   client.login(token);

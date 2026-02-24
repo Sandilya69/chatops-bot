@@ -1,10 +1,13 @@
 import { SlashCommandBuilder } from 'discord.js';
 import Role from '../models/Role.js';
+import { hasRole } from '../lib/roles.js';
+import { logCommand } from '../lib/commandAudit.js';
+import logger from '../lib/logger.js';
 
 export default {
   data: new SlashCommandBuilder()
     .setName('addrole')
-    .setDescription('Add a new user role to the database')
+    .setDescription('Add a new user role (Admin only)')
     .addStringOption(option =>
       option.setName('user_id')
         .setDescription('Discord user ID')
@@ -24,6 +27,16 @@ export default {
     try {
       await interaction.deferReply({ ephemeral: true });
 
+      // Check if the executor is an admin
+      const executorId = interaction.user.id;
+      const isAdmin = await hasRole(executorId, 'admin');
+      if (!isAdmin && executorId !== process.env.ROOT_USER_ID) {
+        await logCommand(executorId, 'addrole', 'denied');
+        return interaction.editReply({ 
+          content: '🚫 Only admins can add roles.' 
+        });
+      }
+
       const userId = interaction.options.getString('user_id');
       const role = interaction.options.getString('role');
 
@@ -35,16 +48,16 @@ export default {
         });
       }
 
-      // Insert new role
       await Role.create({ userId, role });
+      await logCommand(executorId, 'addrole', 'success', { targetUser: userId, roleAssigned: role });
+      logger.info('Role added', { executorId, targetUser: userId, role });
 
       return interaction.editReply({
         content: `✅ Role added successfully for user_id: ${userId} (${role})`
       });
 
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('AddRole command error:', error);
+      logger.error('AddRole command error', { error: error.message });
       
       if (interaction.deferred || interaction.replied) {
         return interaction.editReply({

@@ -2,17 +2,20 @@ import { SlashCommandBuilder } from 'discord.js';
 import Service from '../models/Service.js';
 import { isDbConnected } from '../lib/dbState.js';
 import { hasRole } from '../lib/roles.js';
+import logger from '../lib/logger.js';
 
 export async function handleAddService(interaction) {
+  await interaction.deferReply({ ephemeral: true });
+
   if (!isDbConnected()) {
-    return interaction.reply({ content: '❌ Database offline. Cannot add services.', ephemeral: true });
+    return interaction.editReply({ content: '❌ Database offline. Cannot add services.' });
   }
 
   const userId = interaction.user.id;
   const isAdmin = await hasRole(userId, 'admin');
 
   if (!isAdmin && userId !== process.env.ROOT_USER_ID) {
-    return interaction.reply({ content: '🚫 Only admins can add new services.', ephemeral: true });
+    return interaction.editReply({ content: '🚫 Only admins can add new services.' });
   }
 
   const name = interaction.options.getString('name');
@@ -23,7 +26,7 @@ export async function handleAddService(interaction) {
   try {
     const existing = await Service.findOne({ name });
     if (existing) {
-        return interaction.reply({ content: `⚠️ Service **${name}** already exists. Use /updateservice to modify it.`, ephemeral: true });
+      return interaction.editReply({ content: `⚠️ Service **${name}** already exists. Use /updateservice to modify it.` });
     }
 
     const repoFullName = `${owner}/${repo}`;
@@ -33,11 +36,11 @@ export async function handleAddService(interaction) {
         workflow_id: workflow 
     });
 
-    await interaction.reply({ content: `✅ **Service Registered!**\nService: \`${name}\`\nRepo: \`${repoFullName}\`\nWorkflow: \`${workflow}\`\n\nYou can now deploy this service using \`/deploy service:${name}\`.` });
+    await interaction.editReply({ content: `✅ **Service Registered!**\nService: \`${name}\`\nRepo: \`${repoFullName}\`\nWorkflow: \`${workflow}\`\n\nYou can now deploy this service using \`/deploy service:${name}\`.` });
 
   } catch (e) {
-    console.error(e);
-    await interaction.reply({ content: '❌ Failed to register service.', ephemeral: true });
+    logger.error('AddService failed', { error: e.message, name });
+    await interaction.editReply({ content: '❌ Failed to register service.' });
   }
 }
 

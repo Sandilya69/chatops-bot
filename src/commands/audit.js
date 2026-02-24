@@ -1,6 +1,8 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import ActiveDeploy from '../models/ActiveDeploy.js';
 import { isDbConnected } from '../lib/dbState.js';
+import { logCommand } from '../lib/commandAudit.js';
+import logger from '../lib/logger.js';
 
 const data = new SlashCommandBuilder()
     .setName('audit')
@@ -73,12 +75,12 @@ async function execute(interaction) {
             return embed;
         });
 
-        // Send up to 10 embeds (Discord limit)
         const embedsToSend = embeds.slice(0, 10);
+        await logCommand(interaction.user.id, 'audit', 'success', { service, correlationId, resultCount: deployments.length });
         await interaction.reply({ embeds: embedsToSend });
 
     } catch (err) {
-        console.error('Audit command error:', err);
+        logger.error('Audit command error', { error: err.message });
         return interaction.reply({ content: '⚠️ Error fetching audit logs.', ephemeral: true });
     }
 }

@@ -1,6 +1,8 @@
 import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import ActiveDeploy from '../models/ActiveDeploy.js';
 import { canDeploy } from '../lib/rbac.js';
+import { logCommand } from '../lib/commandAudit.js';
+import logger from '../lib/logger.js';
 
 export async function handleRollback(interaction) {
   const service = interaction.options.getString('service');
@@ -10,6 +12,8 @@ export async function handleRollback(interaction) {
   // 1. RBAC Check
   const allowed = await canDeploy(userId, env);
   if (!allowed) {
+    await logCommand(userId, 'rollback', 'denied', { service, env });
+    logger.warn('Rollback denied by RBAC', { userId, service });
     return interaction.reply({ content: '🚫 Rollback is a protected action. Only authorized users can perform it.', ephemeral: true });
   }
 
@@ -28,6 +32,9 @@ export async function handleRollback(interaction) {
     new ButtonBuilder().setCustomId(`confirm_rollback:${service}:${commitSha}`).setLabel(`🚨 CONFIRM ROLLBACK to ${version}`).setStyle(ButtonStyle.Danger),
     new ButtonBuilder().setCustomId('cancel_rollback').setLabel('Cancel').setStyle(ButtonStyle.Secondary)
   );
+
+  await logCommand(userId, 'rollback', 'success', { service, env, targetVersion: version });
+  logger.info('Rollback confirmation requested', { userId, service, version });
 
   await interaction.reply({
     content: `⚠️ **ROLLBACK REQUEST** ⚠️\n\n**Service:** ${service}\n**Target:** ${env}\n**Reverting To:** ${version} (SHA: ${commitSha})\n\nAre you sure? This will immediately re-deploy this version.`,

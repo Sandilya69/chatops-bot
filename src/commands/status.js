@@ -1,6 +1,7 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { getRunStatus } from '../lib/github.js';
 import ActiveDeploy from '../models/ActiveDeploy.js';
+import logger from '../lib/logger.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -26,8 +27,7 @@ export default {
       const txt = `Run #${runId}: status=${data.status}, conclusion=${data.conclusion || 'n/a'}\n${data.html_url}`;
       return interaction.editReply({ content: txt });
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error('Status command error:', err);
+      logger.error('Status command error', { error: err.message });
       if (interaction.deferred || interaction.replied) {
         return interaction.editReply({ content: '⚠️ Failed to fetch status.' });
       }
