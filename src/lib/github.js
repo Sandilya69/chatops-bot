@@ -19,17 +19,37 @@ export async function triggerWorkflow({ service, env, version, ref = 'main', rep
   const url = `${baseUrl}/repos/${owner}/${repo}/actions/workflows/${workflowId}/dispatches`;
   const body = { ref, inputs: { service, env, version } };
 
-  await withRetry(() => fetch(url, { method: 'POST', headers: ghHeaders(), body: JSON.stringify(body) }), {
-    retries: 3,
-    onRetry: (e, i) => console.warn(`[GH] dispatch retry ${i}:`, e?.message)
-  });
+  console.log(`[GH] Dispatch URL: ${url}`);
+  console.log(`[GH] Owner: ${owner}, Repo: ${repo}, Token starts: ${process.env.GITHUB_TOKEN?.substring(0, 20)}...`);
 
-  // Try to locate the newest workflow run for this workflow
-  const runsUrl = `${baseUrl}/repos/${owner}/${repo}/actions/workflows/${workflowId}/runs?event=workflow_dispatch&per_page=1`;
-  const res = await withRetry(() => fetch(runsUrl, { headers: ghHeaders() }), { retries: 3 });
-  const data = await res.json();
-  const run = data?.workflow_runs?.[0];
-  return run?.id || null;
+  const dispatchTime = new Date().toISOString();
+  const dispatchRes = await fetch(url, { method: 'POST', headers: ghHeaders(), body: JSON.stringify(body) });
+  
+  if (!dispatchRes.ok) {
+    const errText = await dispatchRes.text();
+    console.error(`[GH] Dispatch failed: ${dispatchRes.status} ${errText}`);
+    throw new Error(`GitHub dispatch failed (${dispatchRes.status}): ${errText}`);
+  }
+  
+  console.log(`[GH] Dispatch success (204). Looking for new run...`);
+
+  // Poll for the new workflow run (created after our dispatch)
+  const runsUrl = `${baseUrl}/repos/${owner}/${repo}/actions/workflows/${workflowId}/runs?event=workflow_dispatch&per_page=5`;
+  
+  for (let attempt = 0; attempt < 8; attempt++) {
+    await new Promise(r => setTimeout(r, attempt === 0 ? 5000 : 3000));
+    const res = await fetch(runsUrl, { headers: ghHeaders() });
+    const data = await res.json();
+    const runs = data?.workflow_runs || [];
+    // Find a run created after our dispatch
+    const newRun = runs.find(r => new Date(r.created_at) >= new Date(dispatchTime));
+    if (newRun?.id) {
+      console.log(`[GH] Found run ID: ${newRun.id} (status: ${newRun.status})`);
+      return newRun.id;
+    }
+    console.log(`[GH] Attempt ${attempt + 1}/8: no new run yet...`);
+  }
+  return null;
 }
 
 export async function getRunStatus(runId, repoInfo) {

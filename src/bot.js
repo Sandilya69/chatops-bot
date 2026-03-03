@@ -151,10 +151,24 @@ client.on(Events.InteractionCreate, async interaction => {
 
 import express from 'express';
 import bodyParser from 'body-parser';
+import helmet from 'helmet';
+import morgan from 'morgan';
 import githubRoutes from './routes/github.js';
+import dashboardRoutes from './routes/dashboard.js';
 
 const app = express();
+app.use(helmet({ contentSecurityPolicy: false }));
+app.use(morgan('tiny'));
 app.use(bodyParser.json());
+
+// Health endpoint
+app.get('/health', async (_req, res) => {
+  const dbState = mongoose.connection.readyState; // 1 = connected
+  res.status(200).json({ ok: true, db: dbState });
+});
+
+// Dashboard
+app.use('/dashboard', dashboardRoutes);
 
 // Mount the GitHub webhook router (Step 5)
 app.use('/github', (req, res, next) => {

@@ -15,6 +15,9 @@ export async function isApprover(userId) {
 }
 
 export async function canDeploy(userId, env) {
+  // Root user bypass (consistent with addrole/addservice/deleterole)
+  if (userId === process.env.ROOT_USER_ID) return true;
+
   const role = await getUserRole(userId);
   
   if (role === 'admin') return true; // Admins can do everything
