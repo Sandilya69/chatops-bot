@@ -16,6 +16,11 @@ import logger from '../lib/logger.js';
 const APPROVAL_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 
 export async function handleDeploy(interaction) {
+  // Defer immediately to avoid Discord's 3-second timeout
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferReply();
+  }
+
   const serviceName = interaction.options.getString('service');
   const env = interaction.options.getString('env');
   const version = interaction.options.getString('version') || 'latest';
@@ -28,37 +33,29 @@ export async function handleDeploy(interaction) {
       serviceDetails = await Service.findOne({ name: serviceName }).lean();
   }
 
-  // Fallback for demo/legacy: use env vars if service not in DB
-  if (!serviceDetails && process.env.GITHUB_REPO) {
-      serviceDetails = {
-          repo: process.env.GITHUB_REPO,
-          workflow_id: 'deploy.yml'
-      };
-  }
-
   if (!serviceDetails) {
-      return interaction.reply({ content: `❌ Error: Service **${serviceName}** is not registered in the database.`, ephemeral: true });
+      return interaction.editReply({ content: `❌ Error: Service **${serviceName}** is not registered in the database. Check spelling.` });
   }
 
   // Step 6: Rate Limiting
-  if (isRateLimited(userId, serviceName, 30000)) {
-      const remaining = getRemainingCooldown(userId, serviceName, 30000);
-      return interaction.reply({ content: `⚠️ **Rate Limit Active!** Please wait ${remaining}s before deploying **${serviceName}** again.`, ephemeral: true });
+  if (isRateLimited(userId, serviceName, 5000)) {
+      const remaining = getRemainingCooldown(userId, serviceName, 5000);
+      return interaction.editReply({ content: `⚠️ **Rate Limit Active!** Please wait ${remaining}s before deploying **${serviceName}** again.` });
   }
 
   const allowed = await canDeploy(userId, env);
   if (!allowed) {
     await logCommand(userId, '/deploy', 'denied', { service: serviceName, env });
     logger.warn('Deploy denied by RBAC', { userId, service: serviceName, env });
-    return interaction.reply({ content: "🚫 You don't have permission to run this command.", ephemeral: true });
+    return interaction.editReply({ content: "🚫 You don't have permission to run this command." });
   }
 
   const key = keyFor(serviceName, env);
   if (activeDeployments.has(key)) {
-    return interaction.reply({ content: `⏳ Already deploying ${serviceName} to ${env}. Please wait.`, ephemeral: true });
+    return interaction.editReply({ content: `⏳ Already deploying ${serviceName} to ${env}. Please wait.` });
   }
   if (isInCooldown(serviceName, env)) {
-    return interaction.reply({ content: `🕒 Cooldown active for ${serviceName}/${env}. Try later.`, ephemeral: true });
+    return interaction.editReply({ content: `🕒 Cooldown active for ${serviceName}/${env}. Try later.` });
   }
 
   if (env === 'prod') {
@@ -79,7 +76,7 @@ export async function handleDeploy(interaction) {
     );
     await logCommand(userId, '/deploy', 'success', { service: serviceName, env, version, correlationId, type: 'approval_requested' });
     logger.info('Production approval requested', { correlationId, service: serviceName, env, version, userId });
-    return interaction.reply({
+    return interaction.editReply({
       content: `🔐 Approval required to deploy ${serviceName} to ${env} (version: ${version}). Only admins can approve. ⏰ Expires in 30 minutes.`,
       components: [row]
     });
@@ -89,14 +86,14 @@ export async function handleDeploy(interaction) {
   if (isDbConnected()) {
     const existing = await ActiveDeploy.findOne({ correlationId }).lean();
     if (existing) {
-      return interaction.reply({ content: `🔁 Duplicate request ignored (correlationId: ${correlationId}).`, ephemeral: true });
+      return interaction.editReply({ content: `🔁 Duplicate request ignored (correlationId: ${correlationId}).` });
     }
     await withRetry(() => ActiveDeploy.create({ correlationId, service: serviceName, env, version, userId }), { retries: 2 });
   }
 
   activeDeployments.add(key);
-  setTimeout(() => activeDeployments.delete(key), 5 * 60 * 1000);
-  setCooldown(serviceName, env, 2 * 60 * 1000);
+  setTimeout(() => activeDeployments.delete(key), 2 * 60 * 1000);
+  setCooldown(serviceName, env, 10 * 1000);
   await logCommand(userId, '/deploy', 'success', { service: serviceName, env, version, correlationId });
   try {
     const res = await runDeploymentFlow(interaction, { service: serviceName, env, version, serviceDetails, correlationId });
@@ -113,8 +110,9 @@ export async function handleDeploy(interaction) {
 }
 
 async function runDeploymentFlow(interaction, { service, env, version, serviceDetails, correlationId }) {
-  // Initial message
-  const reply = await interaction.reply({ content: `⏳ **Deploy Initiated (v4 Polling Mode)**\n**Service:** ${service}\n**Env:** ${env}\n**Version:** ${version}` , fetchReply: true });
+  // Initial message — interaction is already deferred, so use editReply
+  await interaction.editReply({ content: `⏳ **Deploy Initiated (v4 Polling Mode)**\n**Service:** ${service}\n**Env:** ${env}\n**Version:** ${version}` });
+  const reply = await interaction.fetchReply();
 
   const startTime = Date.now();
   let thread;

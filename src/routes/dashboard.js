@@ -263,6 +263,14 @@ router.get('/', (req, res) => {
 <div class="refresh-info">Auto-refreshes every 30 seconds · <span id="lastRefresh">--</span></div>
 
 <script>
+// ── Security: HTML Escape to prevent XSS ──
+function esc(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = String(str);
+  return div.innerHTML;
+}
+
 function showTab(name) {
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
@@ -271,14 +279,18 @@ function showTab(name) {
 }
 
 function statusBadge(s) {
-  if (s === 'completed' || s === 'success') return '<span class="badge badge-success">' + s + '</span>';
-  if (s === 'failed' || s === 'error')      return '<span class="badge badge-failed">' + s + '</span>';
-  if (s === 'in_progress')                  return '<span class="badge badge-progress">' + s + '</span>';
-  return '<span class="badge">' + (s || 'unknown') + '</span>';
+  const safe = esc(s);
+  if (s === 'completed' || s === 'success') return '<span class="badge badge-success">' + safe + '</span>';
+  if (s === 'failed' || s === 'error')      return '<span class="badge badge-failed">' + safe + '</span>';
+  if (s === 'in_progress')                  return '<span class="badge badge-progress">' + safe + '</span>';
+  return '<span class="badge">' + (safe || 'unknown') + '</span>';
 }
 
 function roleBadge(r) {
-  return '<span class="badge badge-' + (r || 'viewer') + '">' + (r || 'none') + '</span>';
+  const safe = esc(r);
+  const validRoles = ['admin','developer','tester','viewer'];
+  const cls = validRoles.includes(r) ? r : 'viewer';
+  return '<span class="badge badge-' + cls + '">' + (safe || 'none') + '</span>';
 }
 
 function formatDate(d) {
@@ -287,13 +299,18 @@ function formatDate(d) {
 }
 
 function emptyState(msg) {
-  return '<div class="empty-state"><div class="icon">📭</div><p>' + msg + '</p></div>';
+  return '<div class="empty-state"><div class="icon">📭</div><p>' + esc(msg) + '</p></div>';
 }
 
 async function loadDashboard() {
   try {
+    // Get auth token from URL params (e.g. /dashboard?token=your_secret)
+    const urlParams = new URLSearchParams(window.location.search);
+    const authToken = urlParams.get('token') || '';
+    const authQuery = authToken ? '?token=' + encodeURIComponent(authToken) : '';
+    
     // Stats
-    const stats = await (await fetch('/dashboard/api/stats')).json();
+    const stats = await (await fetch('/dashboard/api/stats' + authQuery)).json();
     document.getElementById('statTotal').textContent = stats.totalDeploys;
     document.getElementById('statSuccess').textContent = stats.successDeploys;
     document.getElementById('statFailed').textContent = stats.failedDeploys;
@@ -312,67 +329,67 @@ async function loadDashboard() {
     }
 
     // Deployments
-    const deploys = await (await fetch('/dashboard/api/deploys')).json();
+    const deploys = await (await fetch('/dashboard/api/deploys' + authQuery)).json();
     if (deploys.length === 0) {
       document.getElementById('tab-deploys').innerHTML = emptyState('No deployments yet. Run /deploy in Discord to get started!');
     } else {
       let html = '<table><thead><tr><th>Correlation ID</th><th>Service</th><th>Env</th><th>Version</th><th>User</th><th>Status</th><th>Started</th></tr></thead><tbody>';
       deploys.forEach(d => {
-        html += '<tr><td><code>' + (d.correlationId || '-').substring(0,8) + '...</code></td><td>' + (d.service||'-') + '</td><td>' + (d.env||'-') + '</td><td>' + (d.version||'-') + '</td><td>' + (d.userId||'-') + '</td><td>' + statusBadge(d.status) + '</td><td>' + formatDate(d.startedAt) + '</td></tr>';
+        html += '<tr><td><code>' + esc((d.correlationId || '-').substring(0,8)) + '...</code></td><td>' + esc(d.service||'-') + '</td><td>' + esc(d.env||'-') + '</td><td>' + esc(d.version||'-') + '</td><td>' + esc(d.userId||'-') + '</td><td>' + statusBadge(d.status) + '</td><td>' + formatDate(d.startedAt) + '</td></tr>';
       });
       html += '</tbody></table>';
       document.getElementById('tab-deploys').innerHTML = html;
     }
 
     // Commands
-    const cmds = await (await fetch('/dashboard/api/commands')).json();
+    const cmds = await (await fetch('/dashboard/api/commands' + authQuery)).json();
     if (cmds.length === 0) {
       document.getElementById('tab-commands').innerHTML = emptyState('No command history yet.');
     } else {
       let html = '<table><thead><tr><th>Command</th><th>User</th><th>Status</th><th>Meta</th><th>Time</th></tr></thead><tbody>';
       cmds.forEach(c => {
-        const meta = c.meta ? JSON.stringify(c.meta) : '-';
-        html += '<tr><td><code>' + (c.command||'-') + '</code></td><td>' + (c.userId||'-') + '</td><td>' + statusBadge(c.status) + '</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + meta + '</td><td>' + formatDate(c.timestamp) + '</td></tr>';
+        const meta = c.meta ? esc(JSON.stringify(c.meta)) : '-';
+        html += '<tr><td><code>' + esc(c.command||'-') + '</code></td><td>' + esc(c.userId||'-') + '</td><td>' + statusBadge(c.status) + '</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + meta + '</td><td>' + formatDate(c.timestamp) + '</td></tr>';
       });
       html += '</tbody></table>';
       document.getElementById('tab-commands').innerHTML = html;
     }
 
     // Audit
-    const audit = await (await fetch('/dashboard/api/audit')).json();
+    const audit = await (await fetch('/dashboard/api/audit' + authQuery)).json();
     if (audit.length === 0) {
       document.getElementById('tab-audit').innerHTML = emptyState('No audit log entries yet.');
     } else {
       let html = '<table><thead><tr><th>Action</th><th>User</th><th>Details</th><th>Time</th></tr></thead><tbody>';
       audit.forEach(a => {
-        const details = a.details ? JSON.stringify(a.details) : '-';
-        html += '<tr><td>' + (a.action||'-') + '</td><td>' + (a.user||'-') + '</td><td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + details + '</td><td>' + formatDate(a.timestamp) + '</td></tr>';
+        const details = a.details ? esc(JSON.stringify(a.details)) : '-';
+        html += '<tr><td>' + esc(a.action||'-') + '</td><td>' + esc(a.user||'-') + '</td><td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + details + '</td><td>' + formatDate(a.timestamp) + '</td></tr>';
       });
       html += '</tbody></table>';
       document.getElementById('tab-audit').innerHTML = html;
     }
 
     // Roles
-    const roles = await (await fetch('/dashboard/api/roles')).json();
+    const roles = await (await fetch('/dashboard/api/roles' + authQuery)).json();
     if (roles.length === 0) {
       document.getElementById('tab-roles').innerHTML = emptyState('No roles assigned yet. Use /addrole in Discord.');
     } else {
       let html = '<table><thead><tr><th>User ID</th><th>Role</th></tr></thead><tbody>';
       roles.forEach(r => {
-        html += '<tr><td><code>' + (r.userId||'-') + '</code></td><td>' + roleBadge(r.role) + '</td></tr>';
+        html += '<tr><td><code>' + esc(r.userId||'-') + '</code></td><td>' + roleBadge(r.role) + '</td></tr>';
       });
       html += '</tbody></table>';
       document.getElementById('tab-roles').innerHTML = html;
     }
 
     // Services
-    const services = await (await fetch('/dashboard/api/services')).json();
+    const services = await (await fetch('/dashboard/api/services' + authQuery)).json();
     if (services.length === 0) {
       document.getElementById('tab-services').innerHTML = emptyState('No services registered yet. Use /addservice in Discord.');
     } else {
       let html = '<table><thead><tr><th>Name</th><th>Repository</th><th>Workflow</th><th>Environments</th></tr></thead><tbody>';
       services.forEach(s => {
-        html += '<tr><td><strong>' + (s.name||'-') + '</strong></td><td><code>' + (s.repo||'-') + '</code></td><td><code>' + (s.workflow_id||'deploy.yml') + '</code></td><td>' + (s.envs ? s.envs.join(', ') : 'any') + '</td></tr>';
+        html += '<tr><td><strong>' + esc(s.name||'-') + '</strong></td><td><code>' + esc(s.repo||'-') + '</code></td><td><code>' + esc(s.workflow_id||'deploy.yml') + '</code></td><td>' + esc(s.envs ? s.envs.join(', ') : 'any') + '</td></tr>';
       });
       html += '</tbody></table>';
       document.getElementById('tab-services').innerHTML = html;

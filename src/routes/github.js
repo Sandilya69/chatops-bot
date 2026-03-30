@@ -8,7 +8,10 @@ const router = express.Router();
 // FIX-004: GitHub webhook signature verification
 function verifyGitHubSignature(req, res, next) {
   const secret = process.env.GITHUB_WEBHOOK_SECRET;
-  if (!secret) return next(); // skip verification if secret not configured
+  if (!secret) {
+    logger.warn('[Webhook] GITHUB_WEBHOOK_SECRET not configured — rejecting request');
+    return res.status(503).json({ error: 'Webhook not configured. Set GITHUB_WEBHOOK_SECRET.' });
+  }
 
   const sig = req.headers['x-hub-signature-256'];
   if (!sig) {

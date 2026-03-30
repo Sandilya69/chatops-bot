@@ -23,6 +23,21 @@ export async function handleAddService(interaction) {
   const repo = interaction.options.getString('repo');
   const workflow = interaction.options.getString('workflow') || 'deploy.yml';
 
+  // ── Input Validation ──
+  const { validateServiceName, validateGitHubOwner, validateGitHubRepo, validateWorkflowFile } = await import('../lib/security.js');
+  
+  const nameCheck = validateServiceName(name);
+  if (!nameCheck.valid) return interaction.editReply({ content: `❌ ${nameCheck.error}` });
+  
+  const ownerCheck = validateGitHubOwner(owner);
+  if (!ownerCheck.valid) return interaction.editReply({ content: `❌ ${ownerCheck.error}` });
+  
+  const repoCheck = validateGitHubRepo(repo);
+  if (!repoCheck.valid) return interaction.editReply({ content: `❌ ${repoCheck.error}` });
+  
+  const workflowCheck = validateWorkflowFile(workflow);
+  if (!workflowCheck.valid) return interaction.editReply({ content: `❌ ${workflowCheck.error}` });
+
   try {
     const existing = await Service.findOne({ name });
     if (existing) {

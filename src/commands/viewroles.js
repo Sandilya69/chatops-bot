@@ -36,16 +36,20 @@ export default {
     } catch (error) {
       logger.error('ViewRoles command error', { error: error.message });
       
-      if (interaction.deferred || interaction.replied) {
-        return interaction.editReply({
-          content: `❌ Error fetching roles: ${error.message}`
+      try {
+        if (interaction.deferred || interaction.replied) {
+          return interaction.editReply({
+            content: `❌ Error fetching roles: ${error.message}`
+          });
+        }
+        
+        return interaction.reply({
+          content: '❌ Error fetching roles.',
+          flags: 64
         });
+      } catch (replyErr) {
+        logger.error('ViewRoles: Failed to send error reply', { error: replyErr.message });
       }
-      
-      return interaction.reply({
-        content: '❌ Error fetching roles.',
-        ephemeral: true
-      });
     }
   }
 };

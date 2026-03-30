@@ -85,6 +85,23 @@ const commands = [
     options: [
       { name: 'service', description: 'Service name to rollback', type: 3, required: true }
     ]
+  },
+  {
+    name: 'updateservice',
+    description: 'Update a registered service (Admin only)',
+    options: [
+      { name: 'name', description: 'Service name to update', type: 3, required: true },
+      { name: 'owner', description: 'New GitHub Owner/Org', type: 3, required: false },
+      { name: 'repo', description: 'New GitHub Repository', type: 3, required: false },
+      { name: 'workflow', description: 'New workflow filename', type: 3, required: false }
+    ]
+  },
+  {
+    name: 'deleteservice',
+    description: 'Delete a registered service (Admin only)',
+    options: [
+      { name: 'name', description: 'Service name to delete', type: 3, required: true }
+    ]
   }
 ];
 

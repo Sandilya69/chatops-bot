@@ -1,13 +1,40 @@
+# ── Dependencies ──
 node_modules/
+
+# ── Secrets (CRITICAL — never commit these!) ──
 .env
+.env.*
+!.env.example
 config/local.env
-.DS_Store
+config/*.env
+*.pem
+*.key
+
+# ── Logs ──
 *.log
+logs/
 lt_url.log
 ngrok.log
 ngrok.out.log
 run.log
 server_output.log
+
+# ── OS Files ──
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ── IDE ──
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Test/Build ──
 coverage/
-logs/
+dist/
+build/
+*.tmp
+
+# ── misc ──
 ChatOps_Bot_Complete_Analysis_Report.docx

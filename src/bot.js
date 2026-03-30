@@ -57,10 +57,21 @@ client.on(Events.InteractionCreate, async interaction => {
     await command.execute(interaction);
   } catch (err) {
     logger.error('Interaction error', { error: err.message, command: interaction.commandName });
-    if (!interaction.replied) {
-      await interaction.reply({ content: '⚠️ Error handling command.', ephemeral: true });
+    try {
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply({ content: '⚠️ Error handling command.' });
+      } else {
+        await interaction.reply({ content: '⚠️ Error handling command.', flags: 64 });
+      }
+    } catch (replyErr) {
+      logger.error('Failed to send error reply (interaction likely expired)', { error: replyErr.message });
     }
   }
+});
+
+// Safety net: prevent unhandled rejections from crashing the bot
+process.on('unhandledRejection', (reason) => {
+  logger.error('Unhandled Rejection', { error: reason?.message || String(reason) });
 });
 
 client.on(Events.InteractionCreate, async interaction => {
@@ -157,20 +168,70 @@ import githubRoutes from './routes/github.js';
 import dashboardRoutes from './routes/dashboard.js';
 
 const app = express();
-app.use(helmet({ contentSecurityPolicy: false }));
-app.use(morgan('tiny'));
-app.use(bodyParser.json());
 
-// Health endpoint
+// ── Security: Helmet with proper CSP ──
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],  // needed for inline dashboard JS
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:"],
+      connectSrc: ["'self'"],
+    }
+  },
+  crossOriginEmbedderPolicy: false,
+}));
+
+// ── Security: Request body size limit (prevents DoS) ──
+app.use(bodyParser.json({ limit: '1mb' }));
+app.use(bodyParser.urlencoded({ extended: false, limit: '1mb' }));
+
+// ── Security: CORS — restrict to same origin ──
+app.use((req, res, next) => {
+  const allowedOrigin = `http://localhost:${process.env.PORT || 3000}`;
+  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
+app.use(morgan('tiny'));
+
+// ── Security: Dashboard Authentication Middleware ──
+function dashboardAuth(req, res, next) {
+  // The main HTML page is always accessible (it loads the login form)
+  if (req.path === '/' || req.path === '') return next();
+  
+  // API routes require auth token
+  const dashSecret = process.env.DASHBOARD_SECRET;
+  if (!dashSecret) return next(); // No secret set = open (dev mode)
+  
+  const token = req.headers['authorization']?.replace('Bearer ', '') 
+              || req.query.token;
+  
+  if (token !== dashSecret) {
+    logger.warn('Unauthorized dashboard access attempt', { 
+      ip: req.ip, 
+      path: req.path 
+    });
+    return res.status(401).json({ error: 'Unauthorized. Provide valid token.' });
+  }
+  next();
+}
+
+// Health endpoint (no auth needed)
 app.get('/health', async (_req, res) => {
   const dbState = mongoose.connection.readyState; // 1 = connected
   res.status(200).json({ ok: true, db: dbState });
 });
 
-// Dashboard
-app.use('/dashboard', dashboardRoutes);
+// Dashboard (with auth on API routes)
+app.use('/dashboard', dashboardAuth, dashboardRoutes);
 
-// Mount the GitHub webhook router (Step 5)
+// Mount the GitHub webhook router
 app.use('/github', (req, res, next) => {
     req.discordClient = client;
     next();

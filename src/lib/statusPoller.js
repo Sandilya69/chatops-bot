@@ -1,8 +1,8 @@
 import { getRunStatus } from './github.js';
 import { withRetry } from './retry.js';
 
-const POLL_INTERVAL = 10000; // 10 seconds
-const MAX_ATTEMPTS = 90; // 15 minutes max
+const POLL_INTERVAL = 5000; // 5 seconds (was 10s)
+const MAX_ATTEMPTS = 120; // 10 minutes max
 
 /**
  * Polls GitHub for the status of a workflow run until it completes or times out.

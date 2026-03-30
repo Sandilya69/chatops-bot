@@ -40,6 +40,13 @@ export default {
       const userId = interaction.options.getString('user_id');
       const role = interaction.options.getString('role');
 
+      // Validate Discord user ID format
+      const { validateDiscordId } = await import('../lib/security.js');
+      const idCheck = validateDiscordId(userId);
+      if (!idCheck.valid) {
+        return interaction.editReply({ content: `❌ ${idCheck.error}` });
+      }
+
       // Check if role already exists for this user
       const existingRole = await Role.findOne({ userId });
       if (existingRole) {

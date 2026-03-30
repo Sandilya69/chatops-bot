@@ -7,11 +7,16 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Install production dependencies only
+RUN npm ci --omit=dev
 
-# Copy application code
-COPY . .
+# Copy ONLY application code (never copy .env or config/local.env)
+COPY src/ ./src/
+COPY config/validate.js ./config/validate.js
+COPY deploy-commands.js ./
+
+# Verify no secrets were copied
+RUN test ! -f config/local.env && test ! -f .env || (echo "ERROR: Secrets detected in image!" && exit 1)
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
